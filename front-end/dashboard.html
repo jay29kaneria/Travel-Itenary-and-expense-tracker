@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard – Travel Tracker </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 350px; width: 100%; border-radius: 0.5rem; z-index: 1; }
+        .current-loc-pin {
+            background-color: #e74c3c;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            width: 18px !important;
+            height: 18px !important;
+            box-shadow: 0 0 10px rgba(231,76,60,0.8);
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0%   { box-shadow: 0 0 0 0 rgba(231,76,60,0.7); }
+            70%  { box-shadow: 0 0 0 12px rgba(231,76,60,0); }
+            100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); }
+        }
+        .tab-btn.active { background-color: #4f46e5; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- ─── Top Nav ──────────────────────────────────────────────── -->
+    <nav class="bg-indigo-700 text-white px-6 py-4 flex justify-between items-center shadow-md">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">✈️</span>
+            <div>
+                <h1 class="text-xl font-bold leading-none">Travel Itinerary Tracker</h1>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-sm text-indigo-200">Welcome, <span id="adminNameDisplay" class="font-semibold text-white">Admin</span></span>
+            <button onclick="logout()"
+                class="bg-white text-indigo-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-indigo-50 transition">
+                Logout
+            </button>
+        </div>
+    </nav>
+
+    <!-- ─── Tabs ─────────────────────────────────────────────────── -->
+    <div class="max-w-6xl mx-auto px-4 py-6">
+
+        <div class="flex gap-2 mb-6 flex-wrap">
+            <button class="tab-btn active px-5 py-2 rounded-lg border border-indigo-200 font-semibold text-slate-600 hover:bg-indigo-600 hover:text-white transition text-sm" onclick="switchTab('itinerary-tab', this)">📋 Itinerary Form</button>
+            <button class="tab-btn px-5 py-2 rounded-lg border border-indigo-200 font-semibold text-slate-600 hover:bg-indigo-600 hover:text-white transition text-sm" onclick="switchTab('expense-tab', this)">💰 Expense Form</button>
+            <button class="tab-btn px-5 py-2 rounded-lg border border-indigo-200 font-semibold text-slate-600 hover:bg-indigo-600 hover:text-white transition text-sm" onclick="switchTab('records-tab', this)">📊 All Records</button>
+            <button class="tab-btn px-5 py-2 rounded-lg border border-indigo-200 font-semibold text-slate-600 hover:bg-indigo-600 hover:text-white transition text-sm" onclick="switchTab('map-tab', this)">🗺️ Map View</button>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- TAB 1: Itinerary Form                                   -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div id="itinerary-tab" class="tab-content active">
+            <div class="bg-white rounded-2xl shadow-md p-8 max-w-2xl mx-auto">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6 border-b pb-3">📋 Add New Itinerary</h2>
+                <div id="itinerary-msg" class="mb-4 hidden rounded-lg p-3 text-sm"></div>
+
+                <form id="itineraryForm" class="space-y-5">
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Trip ID <span class="text-red-500">*</span></label>
+                            <input type="text" id="tripId" required placeholder="e.g. TRIP-001"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Status</label>
+                            <select id="status"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                <option value="Planned">Planned</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Destination <span class="text-red-500">*</span></label>
+                        <input type="text" id="destination" required placeholder="e.g. Paris, France"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Traveler Name <span class="text-red-500">*</span></label>
+                        <input type="text" id="travelerName" required placeholder="e.g. John Doe"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Travel Date <span class="text-red-500">*</span></label>
+                            <input type="date" id="travelDate" required
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Return Date <span class="text-red-500">*</span></label>
+                            <input type="date" id="returnDate" required
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                        </div>
+                    </div>
+
+                    <!-- ── Geolocation ── -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-700">📍 Departure Location Coordinates</p>
+                                <p class="text-xs text-slate-400 mt-0.5">Auto-detect your current GPS coordinates or enter manually.</p>
+                            </div>
+                            <button type="button" id="detectLocBtn" onclick="detectLocation()"
+                                class="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-2 rounded-lg transition whitespace-nowrap">
+                                <span id="locBtnIcon">📡</span>
+                                <span id="locBtnText">Detect My Location</span>
+                            </button>
+                        </div>
+
+                        <div id="geo-status" class="hidden text-xs mb-3 px-3 py-2 rounded-lg"></div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Latitude</label>
+                                <input type="number" id="latitude" step="any" placeholder="e.g. 28.6139"
+                                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Longitude</label>
+                                <input type="number" id="longitude" step="any" placeholder="e.g. 77.2090"
+                                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white font-mono">
+                            </div>
+                        </div>
+
+                        <!-- Mini inline map preview -->
+                        <div id="geoMapPreview" class="hidden mt-3 rounded-lg overflow-hidden border border-slate-200" style="height:180px;">
+                            <div id="geoMiniMap" style="height:100%;width:100%;"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Notes</label>
+                        <textarea id="notes" rows="3" placeholder="Additional travel notes..."
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-vertical"></textarea>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition text-sm">
+                        ➕ Save Itinerary to MySql
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- TAB 2: Expense Form                                     -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div id="expense-tab" class="tab-content">
+            <div class="bg-white rounded-2xl shadow-md p-8 max-w-2xl mx-auto">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6 border-b pb-3">💰 Add New Expense</h2>
+                <div id="expense-msg" class="mb-4 hidden rounded-lg p-3 text-sm"></div>
+
+                <form id="expenseForm" class="space-y-5">
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Select Itinerary <span class="text-red-500">*</span></label>
+                        <select id="itinerarySelect" required
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                            <option value="">-- Select Itinerary --</option>
+                        </select>
+                        <p class="text-xs text-slate-400 mt-1">Go to "Itinerary Form" to add a new trip first.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Category <span class="text-red-500">*</span></label>
+                            <select id="category" required
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white">
+                                <option value="">-- Select Category --</option>
+                                <option value="Flight">✈️ Flight</option>
+                                <option value="Hotel">🏨 Hotel</option>
+                                <option value="Food">🍽️ Food</option>
+                                <option value="Transport">🚗 Transport</option>
+                                <option value="Activities">🎡 Activities</option>
+                                <option value="Shopping">🛍️ Shopping</option>
+                                <option value="Visa">📄 Visa/Insurance</option>
+                                <option value="Other">🔖 Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Amount (₹) <span class="text-red-500">*</span></label>
+                            <input type="number" id="amount" required min="0" step="0.01" placeholder="0.00"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Description</label>
+                        <input type="text" id="expDescription" placeholder="Brief description of this expense"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Expense Date <span class="text-red-500">*</span></label>
+                        <input type="date" id="expenseDate" required
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition text-sm">
+                        💾 Save Expense to MySql
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- TAB 3: All Records                                      -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div id="records-tab" class="tab-content">
+            <div class="bg-white rounded-2xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-6 border-b pb-3">
+                    <h2 class="text-2xl font-bold text-slate-800">📊 All Itineraries</h2>
+                    <button onclick="loadItineraries()"
+                        class="text-sm bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-semibold px-4 py-2 rounded-lg transition">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="records-container">
+                    <p class="text-slate-400 text-sm italic">Loading records...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- TAB 4: Map View                                         -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div id="map-tab" class="tab-content">
+            <div class="bg-white rounded-2xl shadow-md p-6">
+                <h2 class="text-2xl font-bold text-slate-800 mb-4 border-b pb-3">🗺️ Travel Map</h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Jump to Destination</label>
+                    <select id="destinationSelect" onchange="changeDestination()"
+                        class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white max-w-xs">
+                        <option value="all">🌍 All Destinations (World View)</option>
+                        <option value="paris">Paris, France</option>
+                        <option value="tokyo">Tokyo, Japan</option>
+                        <option value="newyork">New York City, USA</option>
+                        <option value="rome">Rome, Italy</option>
+                        <option value="ahmedabad">Ahmedabad, India</option>
+                        <option value="darjeeling">Darjeeling, India</option>
+                        <option value="delhi">Delhi, India</option>
+                        <option value="goa">Goa, India</option>
+                        <option value="mumbai">Mumbai, India</option>
+                    </select>
+                </div>
+                <div id="map"></div>
+            </div>
+        </div>
+
+    </div><!-- /max-w-6xl -->
+
+    <!-- ─── Expense Detail Modal ─────────────────────────────────── -->
+    <div id="expModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800" id="modalTitle">Expenses</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ─── Auth Check ──────────────────────────────────────────────
+        const adminName = localStorage.getItem('adminName');
+        if (adminName) document.getElementById('adminNameDisplay').textContent = adminName;
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        // ─── Tab Switching ───────────────────────────────────────────
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+
+            if (tabId === 'records-tab') loadItineraries();
+            if (tabId === 'expense-tab') loadItineraryDropdown();
+            if (tabId === 'map-tab' && !mapInitialized) { initMap(); mapInitialized = true; }
+        }
+
+        // ─── Toast / Message Helpers ─────────────────────────────────
+        function showMsg(id, text, success) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = 'mb-4 rounded-lg p-3 text-sm ' +
+                (success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 4000);
+        }
+
+        // ─── ITINERARY FORM ──────────────────────────────────────────
+        document.getElementById('itineraryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const payload = {
+                tripId:       document.getElementById('tripId').value.trim(),
+                destination:  document.getElementById('destination').value.trim(),
+                travelerName: document.getElementById('travelerName').value.trim(),
+                travelDate:   document.getElementById('travelDate').value,
+                returnDate:   document.getElementById('returnDate').value,
+                status:       document.getElementById('status').value,
+                notes:        document.getElementById('notes').value.trim(),
+                latitude:     document.getElementById('latitude').value !== '' ? parseFloat(document.getElementById('latitude').value) : null,
+                longitude:    document.getElementById('longitude').value !== '' ? parseFloat(document.getElementById('longitude').value) : null
+            };
+
+            if (payload.returnDate < payload.travelDate) {
+                return showMsg('itinerary-msg', 'Return date must be after travel date.', false);
+            }
+
+            try {
+                const res = await fetch('/api/itineraries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showMsg('itinerary-msg', '✅ Itinerary saved to MySql successfully!', true);
+                    document.getElementById('itineraryForm').reset();
+                } else {
+                    showMsg('itinerary-msg', data.message || 'Failed to save itinerary.', false);
+                }
+            } catch {
+                showMsg('itinerary-msg', '❌ Cannot connect to server.', false);
+            }
+        });
+
+        // ─── EXPENSE FORM ────────────────────────────────────────────
+        async function loadItineraryDropdown() {
+            try {
+                const res = await fetch('/api/itineraries');
+                const data = await res.json();
+                const sel = document.getElementById('itinerarySelect');
+                sel.innerHTML = '<option value="">-- Select Itinerary --</option>';
+                data.forEach(it => {
+                    const opt = document.createElement('option');
+                    opt.value = it.id;
+                    opt.textContent = `${it.tripId} – ${it.destination} (${it.travelerName})`;
+                    sel.appendChild(opt);
+                });
+            } catch {
+                // silently fail
+            }
+        }
+
+        document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const payload = {
+                itineraryId: document.getElementById('itinerarySelect').value,
+                category:    document.getElementById('category').value,
+                description: document.getElementById('expDescription').value.trim(),
+                amount:      parseFloat(document.getElementById('amount').value),
+                expenseDate: document.getElementById('expenseDate').value
+            };
+
+            if (!payload.itineraryId) return showMsg('expense-msg', 'Please select an itinerary.', false);
+
+            try {
+                const res = await fetch('/api/expenses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showMsg('expense-msg', '✅ Expense saved to MySql successfully!', true);
+                    document.getElementById('expenseForm').reset();
+                } else {
+                    showMsg('expense-msg', data.message || 'Failed to save expense.', false);
+                }
+            } catch {
+                showMsg('expense-msg', '❌ Cannot connect to server.', false);
+            }
+        });
+
+        // ─── GEOLOCATION DETECT ──────────────────────────────────────
+        let geoMiniMap = null, geoMiniMarker = null;
+
+        function detectLocation() {
+            const btn      = document.getElementById('detectLocBtn');
+            const btnIcon  = document.getElementById('locBtnIcon');
+            const btnText  = document.getElementById('locBtnText');
+            const status   = document.getElementById('geo-status');
+
+            if (!('geolocation' in navigator)) {
+                showGeoStatus('❌ Geolocation is not supported by your browser.', false);
+                return;
+            }
+
+            btnIcon.textContent  = '⏳';
+            btnText.textContent  = 'Detecting…';
+            btn.disabled = true;
+            btn.classList.add('opacity-70');
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    const acc = pos.coords.accuracy;
+
+                    document.getElementById('latitude').value  = lat.toFixed(7);
+                    document.getElementById('longitude').value = lng.toFixed(7);
+
+                    showGeoStatus(`✅ Location detected — Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)} (±${Math.round(acc)}m accuracy)`, true);
+
+                    btnIcon.textContent  = '✅';
+                    btnText.textContent  = 'Detected';
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-70');
+                    btn.classList.replace('bg-indigo-600', 'bg-green-600');
+                    btn.classList.replace('hover:bg-indigo-700', 'hover:bg-green-700');
+
+                    // Show mini map preview
+                    showGeoPreview(lat, lng);
+                },
+                (err) => {
+                    const msgs = {
+                        1: 'Permission denied. Please allow location access.',
+                        2: 'Position unavailable. Try again.',
+                        3: 'Request timed out. Try again.'
+                    };
+                    showGeoStatus(`❌ ${msgs[err.code] || 'Unknown error.'}`, false);
+
+                    btnIcon.textContent  = '📡';
+                    btnText.textContent  = 'Detect My Location';
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-70');
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        function showGeoStatus(text, success) {
+            const el = document.getElementById('geo-status');
+            el.textContent = text;
+            el.className = 'text-xs mb-3 px-3 py-2 rounded-lg ' +
+                (success ? 'bg-green-50 text-green-700 border border-green-200'
+                         : 'bg-red-50 text-red-700 border border-red-200');
+            el.classList.remove('hidden');
+        }
+
+        function showGeoPreview(lat, lng) {
+            const previewDiv = document.getElementById('geoMapPreview');
+            previewDiv.classList.remove('hidden');
+
+            if (!geoMiniMap) {
+                geoMiniMap = L.map('geoMiniMap', { zoomControl: true, attributionControl: false });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(geoMiniMap);
+            }
+
+            geoMiniMap.setView([lat, lng], 14);
+
+            const pin = L.divIcon({
+                className: '',
+                html: `<div style="background:#4f46e5;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 8px rgba(79,70,229,0.8);"></div>`,
+                iconSize: [14, 14], iconAnchor: [7, 7]
+            });
+
+            if (geoMiniMarker) {
+                geoMiniMarker.setLatLng([lat, lng]);
+            } else {
+                geoMiniMarker = L.marker([lat, lng], { icon: pin })
+                    .addTo(geoMiniMap)
+                    .bindPopup(`📍 <b>Your Location</b><br>Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}`)
+                    .openPopup();
+            }
+
+            // Fix Leaflet tile rendering inside hidden div
+            setTimeout(() => geoMiniMap.invalidateSize(), 100);
+        }
+
+        // Allow manual lat/lng input to also refresh preview
+        ['latitude', 'longitude'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                const lat = parseFloat(document.getElementById('latitude').value);
+                const lng = parseFloat(document.getElementById('longitude').value);
+                if (!isNaN(lat) && !isNaN(lng)) showGeoPreview(lat, lng);
+            });
+        });
+
+        // ─── LOAD ALL ITINERARIES ────────────────────────────────────
+        async function loadItineraries() {
+            const container = document.getElementById('records-container');
+            container.innerHTML = '<p class="text-slate-400 text-sm italic">Loading...</p>';
+
+            try {
+                const res = await fetch('/api/itineraries');
+                const data = await res.json();
+
+                if (!data.length) {
+                    container.innerHTML = '<p class="text-slate-400 text-sm italic">No itineraries found. Add one from the form!</p>';
+                    return;
+                }
+
+                const statusColor = {
+                    'Planned':   'bg-blue-100 text-blue-700',
+                    'Ongoing':   'bg-yellow-100 text-yellow-700',
+                    'Completed': 'bg-green-100 text-green-700',
+                    'Cancelled': 'bg-red-100 text-red-700'
+                };
+
+                container.innerHTML = `
+                    <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 uppercase text-xs tracking-wide">
+                                <th class="py-3 px-4 border-b">Trip ID</th>
+                                <th class="py-3 px-4 border-b">Destination</th>
+                                <th class="py-3 px-4 border-b">Traveler</th>
+                                <th class="py-3 px-4 border-b">Travel Date</th>
+                                <th class="py-3 px-4 border-b">Return Date</th>
+                                <th class="py-3 px-4 border-b">Status</th>
+                                <th class="py-3 px-4 border-b">Total Expense</th>
+                                <th class="py-3 px-4 border-b">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsBody">
+                        </tbody>
+                    </table>
+                    </div>
+                `;
+
+                const tbody = document.getElementById('recordsBody');
+                data.forEach(it => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 border-b';
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-mono text-indigo-600">${it.tripId}</td>
+                        <td class="py-3 px-4 font-medium">${it.destination}</td>
+                        <td class="py-3 px-4">${it.travelerName}</td>
+                        <td class="py-3 px-4">${formatDate(it.travelDate)}</td>
+                        <td class="py-3 px-4">${formatDate(it.returnDate)}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor[it.status] || 'bg-gray-100 text-gray-600'}">
+                                ${it.status}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-emerald-700">₹${it.totalExpense.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                        <td class="py-3 px-4">
+                            <button onclick="viewExpenses('${it.id}', '${it.destination}')"
+                                class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded mr-1">
+                                💰 Expenses
+                            </button>
+                            <button onclick="deleteItinerary('${it.id}')"
+                                class="text-xs bg-red-100 text-red-700 hover:bg-red-200 px-2 py-1 rounded">
+                                🗑️ Delete
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch {
+                container.innerHTML = '<p class="text-red-500 text-sm">❌ Failed to load records. Is the server running?</p>';
+            }
+        }
+
+        function formatDate(d) {
+            if (!d) return '—';
+            return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        async function deleteItinerary(id) {
+            if (!confirm('Delete this itinerary and all its expenses?')) return;
+            try {
+                const res = await fetch(`/api/itineraries/${id}`, { method: 'DELETE' });
+                if (res.ok) loadItineraries();
+            } catch { alert('Failed to delete.'); }
+        }
+
+        // ─── EXPENSE MODAL ───────────────────────────────────────────
+        async function viewExpenses(itineraryId, destination) {
+            document.getElementById('modalTitle').textContent = `💰 Expenses – ${destination}`;
+            document.getElementById('modalContent').innerHTML = '<p class="text-slate-400 text-sm">Loading...</p>';
+            document.getElementById('expModal').classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/expenses/${itineraryId}`);
+                const data = await res.json();
+
+                if (!data.length) {
+                    document.getElementById('modalContent').innerHTML = '<p class="text-slate-400 text-sm italic">No expenses recorded for this trip.</p>';
+                    return;
+                }
+
+                const total = data.reduce((s, e) => s + e.amount, 0);
+                document.getElementById('modalContent').innerHTML = `
+                    <table class="w-full text-sm border-collapse mb-3">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 uppercase text-xs">
+                                <th class="py-2 px-3 border-b text-left">Category</th>
+                                <th class="py-2 px-3 border-b text-left">Description</th>
+                                <th class="py-2 px-3 border-b text-left">Date</th>
+                                <th class="py-2 px-3 border-b text-right">Amount</th>
+                                <th class="py-2 px-3 border-b"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(e => `
+                                <tr class="border-b hover:bg-slate-50">
+                                    <td class="py-2 px-3">${e.category}</td>
+                                    <td class="py-2 px-3 text-slate-500">${e.description || '—'}</td>
+                                    <td class="py-2 px-3">${formatDate(e.expenseDate)}</td>
+                                    <td class="py-2 px-3 text-right font-semibold text-emerald-700">₹${e.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                                    <td class="py-2 px-3">
+                                        <button onclick="deleteExpense('${e.id}', '${itineraryId}', '${destination}')"
+                                            class="text-red-500 hover:text-red-700 text-xs">🗑️</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-slate-50">
+                                <td colspan="3" class="py-2 px-3 font-bold text-slate-700 text-right">Total</td>
+                                <td class="py-2 px-3 text-right font-bold text-emerald-700">₹${total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+            } catch {
+                document.getElementById('modalContent').innerHTML = '<p class="text-red-500 text-sm">Failed to load expenses.</p>';
+            }
+        }
+
+        async function deleteExpense(expId, itineraryId, destination) {
+            if (!confirm('Delete this expense?')) return;
+            try {
+                await fetch(`/api/expenses/${expId}`, { method: 'DELETE' });
+                viewExpenses(itineraryId, destination);
+                loadItineraries();
+            } catch { alert('Failed to delete expense.'); }
+        }
+
+        function closeModal() {
+            document.getElementById('expModal').classList.add('hidden');
+        }
+
+        // ─── MAP ─────────────────────────────────────────────────────
+        let map, destinationMarkerLayer, userLocationMarker = null, mapInitialized = false;
+
+        const destinations = {
+            paris:      { name: 'Paris', lat: 48.8566, lng: 2.3522 },
+            tokyo:      { name: 'Tokyo', lat: 35.6762, lng: 139.6503 },
+            newyork:    { name: 'New York City', lat: 40.7128, lng: -74.0060 },
+            rome:       { name: 'Rome', lat: 41.9028, lng: 12.4964 },
+            ahmedabad:  { name: 'Ahmedabad', lat: 23.0225, lng: 72.5714 },
+            darjeeling: { name: 'Darjeeling', lat: 27.0360, lng: 88.2627 },
+            delhi:      { name: 'Delhi', lat: 28.6139, lng: 77.2090 },
+            goa:        { name: 'Goa', lat: 15.2993, lng: 74.1240 },
+            mumbai:     { name: 'Mumbai', lat: 19.0760, lng: 72.8777 }
+        };
+
+        function initMap() {
+            map = L.map('map').setView([20, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '© OpenStreetMap'
+            }).addTo(map);
+            destinationMarkerLayer = L.layerGroup().addTo(map);
+
+            // Add all destination markers
+            for (let key in destinations) {
+                const d = destinations[key];
+                L.marker([d.lat, d.lng]).bindPopup(`<b>${d.name}</b>`).addTo(destinationMarkerLayer);
+            }
+
+            // Track live location
+            if ('geolocation' in navigator) {
+                const liveIcon = L.divIcon({ className: 'current-loc-pin', iconSize: [18,18], iconAnchor: [9,9] });
+                navigator.geolocation.watchPosition(pos => {
+                    const { latitude: lat, longitude: lng } = pos.coords;
+                    if (!userLocationMarker) {
+                        userLocationMarker = L.marker([lat, lng], { icon: liveIcon })
+                            .addTo(map)
+                            .bindPopup(`<b>📍 You Are Here</b>`);
+                    } else {
+                        userLocationMarker.setLatLng([lat, lng]);
+                    }
+                }, null, { enableHighAccuracy: true });
+            }
+        }
+
+        function changeDestination() {
+            const key = document.getElementById('destinationSelect').value;
+            destinationMarkerLayer.clearLayers();
+
+            if (key === 'all') {
+                for (let k in destinations) {
+                    const d = destinations[k];
+                    L.marker([d.lat, d.lng]).bindPopup(`<b>${d.name}</b>`).addTo(destinationMarkerLayer);
+                }
+                const bounds = Object.values(destinations).map(d => [d.lat, d.lng]);
+                map.fitBounds(bounds, { padding: [40, 40] });
+            } else {
+                const d = destinations[key];
+                L.marker([d.lat, d.lng]).bindPopup(`<b>${d.name}</b><br>Enjoy your trip!`).openPopup().addTo(destinationMarkerLayer);
+                map.setView([d.lat, d.lng], 12);
+            }
+        }
+    </script>
+
+</body>
+</html>

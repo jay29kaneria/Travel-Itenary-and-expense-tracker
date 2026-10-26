@@ -1,0 +1,32 @@
+CREATE TABLE IF NOT EXISTS admins (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS itineraries (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tripId VARCHAR(100) NOT NULL,
+    destination VARCHAR(255) NOT NULL,
+    travelerName VARCHAR(150) NOT NULL,
+    travelDate DATE NOT NULL,
+    returnDate DATE NOT NULL,
+    status ENUM('Planned', 'Ongoing', 'Completed', 'Cancelled') NOT NULL DEFAULT 'Planned',
+    notes TEXT,
+    latitude DOUBLE NULL,
+    longitude DOUBLE NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    itineraryId INT UNSIGNED NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    description TEXT,
+    amount DECIMAL(12,2) NOT NULL,
+    expenseDate DATE NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (itineraryId) REFERENCES itineraries(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
